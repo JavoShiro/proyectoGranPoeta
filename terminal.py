@@ -1,3 +1,4 @@
+import _mysql_connector 
 import sys
 
 def mostrar_menu():
