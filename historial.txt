@@ -1,2 +1,12 @@
 pip install mysql-connector-python
 Para installar la conexión y que funcione en el terminal.py
+
+Usuarios
+Jefe de bodega
+
+id 2 Ricardo Rojas ////contraseña ricrojas12   role_id 1
+id 3 Anais Miranda ////contraseña anamiran24   role_id 1
+
+Bodegero
+id 4 Juan Lopez  ///// jualope56  role_id 2
+id 5 Daniela Villar //// danivill78   role_id 2
