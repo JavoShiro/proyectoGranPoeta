@@ -23,9 +23,12 @@ def mostrar_menu(perfil):
     if perfil == "Jefe de Bodega":
         print("1. Crear producto")
         print("2. Crear bodega")
+        print("3. Ver detalles de movimientos")
+        print("4. Mostrar productos en bodega")
     elif perfil == "Bodeguero":
         print("1. Mover producto entre bodegas")
-    print("3. Salir")
+        print("2. Mostrar productos en bodega")
+    print("5. Salir")
 
 def iniciar_sesion(conexion):
     username = input("Usuario: ")
@@ -47,22 +50,59 @@ def iniciar_sesion(conexion):
 def crear_producto(conexion):
     titulo = input("Ingrese el título del producto: ")
     tipo = input("Ingrese el tipo de producto (Libro/Revista/Enciclopedia): ")
-    editorial_id = input("Ingrese el ID de la editorial: ")
+    while True:
+        try:
+            editorial_id = int(input("Ingrese el ID de la editorial: "))
+            break
+        except ValueError:
+            print("El ID de editorial debe ser un número entero.")
     descripcion = input("Ingrese la descripción del producto: ")
 
     cursor = conexion.cursor()
-    cursor.execute("INSERT INTO Productos (titulo, tipo, editorial_id, descripcion) VALUES (%s, %s, %s, %s)", 
-                   (titulo, tipo, editorial_id, descripcion))
-    conexion.commit()
-    print("Producto creado exitosamente.")
+    try:
+        cursor.execute("INSERT INTO Productos (titulo, tipo, editorial_id, descripcion) VALUES (%s, %s, %s, %s)", 
+                       (titulo, tipo, editorial_id, descripcion))
+        conexion.commit()
+        print("Producto creado exitosamente.")
+    except mysql.connector.Error as err:
+        print(f"Error al crear el producto: {err}")
 
 def crear_bodega(conexion):
     nombre = input("Ingrese el nombre de la bodega: ")
 
     cursor = conexion.cursor()
-    cursor.execute("INSERT INTO Bodegas (nombre) VALUES (%s)", (nombre,))
-    conexion.commit()
-    print("Bodega creada exitosamente.")
+    try:
+        cursor.execute("INSERT INTO Bodegas (nombre) VALUES (%s)", (nombre,))
+        conexion.commit()
+        print("Bodega creada exitosamente.")
+    except mysql.connector.Error as err:
+        print(f"Error al crear la bodega: {err}")
+
+def detalles_movimiento_jefe_bodega(conexion):
+    cursor = conexion.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT * FROM Detalle_Movimientos")
+        detalles = cursor.fetchall()
+        for detalle in detalles:
+            print(f"ID de Movimiento: {detalle['movimiento_id']}")
+            print(f"ID de Producto: {detalle['producto_id']}")
+            print(f"Cantidad: {detalle['cantidad']}")
+            print("--------------------------")
+    except mysql.connector.Error as err:
+        print(f"Error al obtener detalles de movimientos: {err}")
+
+def mostrar_bodega_productos(conexion):
+    cursor = conexion.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT B.nombre AS bodega, P.titulo AS producto, BP.cantidad FROM Bodegas B INNER JOIN Bodega_Productos BP ON B.id = BP.bodega_id INNER JOIN Productos P ON BP.producto_id = P.id")
+        bodega_productos = cursor.fetchall()
+        for bp in bodega_productos:
+            print(f"Bodega: {bp['bodega']}")
+            print(f"Producto: {bp['producto']}")
+            print(f"Cantidad: {bp['cantidad']}")
+            print("--------------------------")
+    except mysql.connector.Error as err:
+        print(f"Error al obtener productos en bodega: {err}")
 
 def mover_producto(conexion, usuario_id):
     bodega_origen_id = input("Ingrese el ID de la bodega de origen: ")
@@ -71,17 +111,20 @@ def mover_producto(conexion, usuario_id):
     cantidad = input("Ingrese la cantidad a mover: ")
 
     cursor = conexion.cursor()
-    cursor.execute("INSERT INTO Movimientos (bodega_origen_id, bodega_destino_id, usuario_id) VALUES (%s, %s, %s)", 
-                   (bodega_origen_id, bodega_destino_id, usuario_id))
-    movimiento_id = cursor.lastrowid
-    cursor.execute("INSERT INTO Detalle_Movimientos (movimiento_id, producto_id, cantidad) VALUES (%s, %s, %s)", 
-                   (movimiento_id, producto_id, cantidad))
-    cursor.execute("UPDATE Bodega_Productos SET cantidad = cantidad - %s WHERE bodega_id = %s AND producto_id = %s", 
-                   (cantidad, bodega_origen_id, producto_id))
-    cursor.execute("INSERT INTO Bodega_Productos (bodega_id, producto_id, cantidad) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE cantidad = cantidad + %s", 
-                   (bodega_destino_id, producto_id, cantidad, cantidad))
-    conexion.commit()
-    print("Producto movido exitosamente.")
+    try:
+        cursor.execute("INSERT INTO Movimientos (bodega_origen_id, bodega_destino_id, usuario_id) VALUES (%s, %s, %s)", 
+                       (bodega_origen_id, bodega_destino_id, usuario_id))
+        movimiento_id = cursor.lastrowid
+        cursor.execute("INSERT INTO Detalle_Movimientos (movimiento_id, producto_id, cantidad) VALUES (%s, %s, %s)", 
+                       (movimiento_id, producto_id, cantidad))
+        cursor.execute("UPDATE Bodega_Productos SET cantidad = cantidad - %s WHERE bodega_id = %s AND producto_id = %s", 
+                       (cantidad, bodega_origen_id, producto_id))
+        cursor.execute("INSERT INTO Bodega_Productos (bodega_id, producto_id, cantidad) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE cantidad = cantidad + %s", 
+                       (bodega_destino_id, producto_id, cantidad, cantidad))
+        conexion.commit()
+        print("Producto movido exitosamente.")
+    except mysql.connector.Error as err:
+        print(f"Error al mover el producto: {err}")
 
 def main():
     conexion = conectar_mysql()
@@ -97,6 +140,10 @@ def main():
             elif opcion == "2":
                 crear_bodega(conexion)
             elif opcion == "3":
+                detalles_movimiento_jefe_bodega(conexion)
+            elif opcion == "4":
+                mostrar_bodega_productos(conexion)
+            elif opcion == "5":
                 print("Vuelva pronto")
                 break
             else:
@@ -104,7 +151,9 @@ def main():
         elif user['role'] == "Bodeguero":
             if opcion == "1":
                 mover_producto(conexion, user['user_id'])
-            elif opcion == "3":
+            elif opcion == "2":
+                mostrar_bodega_productos(conexion)
+            elif opcion == "5":
                 print("Vuelva pronto")
                 break
             else:
