@@ -1,15 +1,8 @@
 import sys
+import os
 import mysql.connector
 from getpass import getpass
 from mysql.connector import Error
-import os
-
-def limpiar_pantalla():
-    """Limpia la pantalla en Windows y Unix."""
-    if os.name == 'nt':
-        os.system('cls')
-    else:
-        os.system('clear')
 
 def conectar_mysql():
     """Establece la conexión con la base de datos MySQL."""
@@ -27,8 +20,11 @@ def conectar_mysql():
         print("Error al conectar a MySQL:", error)
         sys.exit(1)
 
+def limpiar_pantalla():
+    """Limpia la pantalla de la consola."""
+    os.system('cls' if os.name == 'nt' else 'clear')
+
 def mostrar_menu(perfil):
-    limpiar_pantalla()
     """Muestra el menú según el perfil del usuario."""
     print("Bienvenido ¿Qué desea?")
     if perfil == "Jefe de Bodega":
@@ -36,16 +32,17 @@ def mostrar_menu(perfil):
         print("2. Crear bodega")
         print("3. Ver detalles de movimientos")
         print("4. Mostrar productos en bodega")
+        print("5. Mostrar todos los productos")
         print("6. Eliminar bodega con todos sus libros")
         print("7. Eliminar libro de una bodega")
     elif perfil == "Bodeguero":
-        limpiar_pantalla()
         print("1. Mover producto entre bodegas")
         print("2. Mostrar productos en bodega")
-    print("5. Salir")
+        print("3. Mostrar todos los productos")
+    print("4. Salir")
+
 
 def iniciar_sesion(conexion):
-    limpiar_pantalla()
     """Inicia sesión y retorna la información del usuario."""
     username = input("Usuario: ")
     password = getpass("Contraseña: ")
@@ -63,8 +60,38 @@ def iniciar_sesion(conexion):
         print("Credenciales incorrectas.")
         sys.exit(1)
 
+def mostrar_todos_los_productos(conexion):
+    """Muestra todos los productos en todas las bodegas con detalles."""
+    cursor = conexion.cursor()
+    consulta = """
+    SELECT 
+        Bodega_Productos.bodega_id,
+        Bodega_Productos.producto_id,
+        Productos.titulo AS producto_titulo,
+        Editoriales.nombre AS editorial_nombre,
+        Productos.fecha_creacion
+    FROM 
+        Bodega_Productos
+    JOIN 
+        Productos ON Bodega_Productos.producto_id = Productos.id
+    JOIN 
+        Editoriales ON Productos.editorial_id = Editoriales.id;
+    """
+    try:
+        cursor.execute(consulta)
+        resultados = cursor.fetchall()
+        
+        if resultados:
+            print(f"{'ID Bodega':<12} {'ID Producto':<12} {'Título Producto':<30} {'Editorial':<20} {'Fecha Creación':<20}")
+            print("="*94)
+            for fila in resultados:
+                print(f"{fila[0]:<12} {fila[1]:<12} {fila[2]:<30} {fila[3]:<20} {fila[4]:<20}")
+        else:
+            print("No hay productos disponibles.")
+    except mysql.connector.Error as err:
+        print(f"Error al obtener los productos: {err}")
+
 def crear_producto(conexion):
-    limpiar_pantalla()
     """Crea un nuevo producto en la base de datos."""
     titulo = input("Ingrese el título del producto: ")
     tipo = input("Ingrese el tipo de producto (Libro/Revista/Enciclopedia): ")
@@ -117,11 +144,13 @@ def mostrar_bodega_productos(conexion):
     try:
         cursor.execute("SELECT B.nombre AS bodega, P.titulo AS producto, BP.cantidad FROM Bodegas B INNER JOIN Bodega_Productos BP ON B.id = BP.bodega_id INNER JOIN Productos P ON BP.producto_id = P.id")
         bodega_productos = cursor.fetchall()
+        limpiar_pantalla()
         for bp in bodega_productos:
             print(f"Bodega: {bp['bodega']}")
             print(f"Producto: {bp['producto']}")
             print(f"Cantidad: {bp['cantidad']}")
             print("--------------------------")
+        input("Presione Enter para volver al menú...")
     except mysql.connector.Error as err:
         print(f"Error al obtener productos en bodega: {err}")
 
@@ -154,7 +183,9 @@ def eliminar_bodega(conexion):
 
     cursor = conexion.cursor()
     try:
+        # Eliminar todos los registros de Bodega_Productos relacionados con la bodega
         cursor.execute("DELETE FROM Bodega_Productos WHERE bodega_id = %s", (bodega_id,))
+        # Eliminar la bodega
         cursor.execute("DELETE FROM Bodegas WHERE id = %s", (bodega_id,))
         conexion.commit()
         print("Bodega y todos sus productos eliminados exitosamente.")
@@ -168,16 +199,23 @@ def eliminar_libro_de_bodega(conexion):
 
     cursor = conexion.cursor()
     try:
-        cursor.execute("SELECT * FROM Bodega_Productos WHERE bodega_id = %s AND producto_id = %s", (bodega_id, producto_id))
-        producto = cursor.fetchone()
-        if producto:
+        # Verificar si el producto existe en la bodega
+        cursor.execute("SELECT cantidad FROM Bodega_Productos WHERE bodega_id = %s AND producto_id = %s", (bodega_id, producto_id))
+        resultado = cursor.fetchone()
+        
+        if resultado:
+            cantidad = resultado[0]  # Acceder al primer elemento de la tupla
+            print(f"Producto encontrado en la bodega. Cantidad: {cantidad}")
+            # Eliminar el registro del producto en la bodega
             cursor.execute("DELETE FROM Bodega_Productos WHERE bodega_id = %s AND producto_id = %s", (bodega_id, producto_id))
             conexion.commit()
             print("Producto eliminado exitosamente de la bodega.")
         else:
-            print("El producto no se encuentra en la bodega especificada.")
+            print("El producto no existe en la bodega.")
     except mysql.connector.Error as err:
         print(f"Error al eliminar el producto de la bodega: {err}")
+
+
 
 def main():
     """Función principal del programa."""
@@ -198,12 +236,14 @@ def main():
             elif opcion == "4":
                 mostrar_bodega_productos(conexion)
             elif opcion == "5":
+                mostrar_todos_los_productos(conexion)
+            elif opcion == "6":
+                eliminar_bodega(conexion)
+            elif opcion == "7":
+                eliminar_libro_de_bodega(conexion)
+            elif opcion == "8":
                 print("Vuelva pronto")
                 break
-            elif opcion == "6":
-                eliminar_bodega(conexion)  # Llamada a la nueva función
-            elif opcion == "7":
-                eliminar_libro_de_bodega(conexion)  # Llamada a la nueva función
             else:
                 print("Opción inválida.")
         elif user['role'] == "Bodeguero":
@@ -211,7 +251,9 @@ def main():
                 mover_producto(conexion, user['user_id'])
             elif opcion == "2":
                 mostrar_bodega_productos(conexion)
-            elif opcion == "5":
+            elif opcion == "3":
+                mostrar_todos_los_productos(conexion)
+            elif opcion == "4":
                 print("Vuelva pronto")
                 break
             else:

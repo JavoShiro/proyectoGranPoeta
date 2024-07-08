@@ -135,3 +135,27 @@
         END IF;
     END//
     DELIMITER ;
+
+    -- Verificar tablas
+SHOW TABLES;
+
+-- Verificar datos
+SELECT * FROM Bodega_Productos;
+
+ALTER TABLE Productos
+ADD COLUMN fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+SELECT 
+    Bodega_Productos.bodega_id,
+    Bodega_Productos.producto_id,
+    Productos.titulo AS producto_titulo,
+    Editoriales.nombre AS editorial_nombre,
+    Productos.fecha_creacion
+FROM 
+    Bodega_Productos
+JOIN 
+    Productos ON Bodega_Productos.producto_id = Productos.id
+JOIN 
+    Editoriales ON Productos.editorial_id = Editoriales.id;
+
+
