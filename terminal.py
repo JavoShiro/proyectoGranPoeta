@@ -2,6 +2,14 @@ import sys
 import mysql.connector
 from getpass import getpass
 from mysql.connector import Error
+import os
+
+def limpiar_pantalla():
+    """Limpia la pantalla en Windows y Unix."""
+    if os.name == 'nt':
+        os.system('cls')
+    else:
+        os.system('clear')
 
 def conectar_mysql():
     """Establece la conexión con la base de datos MySQL."""
@@ -20,6 +28,7 @@ def conectar_mysql():
         sys.exit(1)
 
 def mostrar_menu(perfil):
+    limpiar_pantalla()
     """Muestra el menú según el perfil del usuario."""
     print("Bienvenido ¿Qué desea?")
     if perfil == "Jefe de Bodega":
@@ -27,14 +36,16 @@ def mostrar_menu(perfil):
         print("2. Crear bodega")
         print("3. Ver detalles de movimientos")
         print("4. Mostrar productos en bodega")
-        print("6. Eliminar bodega con todos sus libros")  # Nueva opción
-        print("7. Eliminar libro de una bodega")  # Nueva opción
+        print("6. Eliminar bodega con todos sus libros")
+        print("7. Eliminar libro de una bodega")
     elif perfil == "Bodeguero":
+        limpiar_pantalla()
         print("1. Mover producto entre bodegas")
         print("2. Mostrar productos en bodega")
     print("5. Salir")
 
 def iniciar_sesion(conexion):
+    limpiar_pantalla()
     """Inicia sesión y retorna la información del usuario."""
     username = input("Usuario: ")
     password = getpass("Contraseña: ")
@@ -53,6 +64,7 @@ def iniciar_sesion(conexion):
         sys.exit(1)
 
 def crear_producto(conexion):
+    limpiar_pantalla()
     """Crea un nuevo producto en la base de datos."""
     titulo = input("Ingrese el título del producto: ")
     tipo = input("Ingrese el tipo de producto (Libro/Revista/Enciclopedia): ")
@@ -142,9 +154,7 @@ def eliminar_bodega(conexion):
 
     cursor = conexion.cursor()
     try:
-        # Eliminar todos los registros de Bodega_Productos relacionados con la bodega
         cursor.execute("DELETE FROM Bodega_Productos WHERE bodega_id = %s", (bodega_id,))
-        # Eliminar la bodega
         cursor.execute("DELETE FROM Bodegas WHERE id = %s", (bodega_id,))
         conexion.commit()
         print("Bodega y todos sus productos eliminados exitosamente.")
